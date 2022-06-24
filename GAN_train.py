@@ -28,8 +28,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 path2data = './data'
 
 # MNIST dataset 불러오기
-if not os.listdir(path2data):
-    os.makedirs(path2data, exist_ok=True) # 폴더 생성
+os.makedirs(path2data, exist_ok=True) # 폴더 생성
     
 train_ds = datasets.MNIST(path2data, train=True, transform=transforms.Compose([transforms.ToTensor(),transforms.Normalize([0.5],[0.5])]), download=True)
 
@@ -76,7 +75,7 @@ opt_gen = optim.Adam(model_gen.parameters(),lr=lr,betas=(beta1,0.999))
 real_label = 1.
 fake_label = 0.
 nz = params['nz']
-num_epochs = 2
+num_epochs = 50
 
 loss_history={'gen':[], 'dis':[]}
 
@@ -122,4 +121,43 @@ for epoch in range(num_epochs):
         if batch_count % 1000 == 0:
             print('Epoch: %.0f, G_Loss: %.6f, D_Loss: %.6f, time: %.2f min' %(epoch, loss_gen.item(), loss_dis.item(), (time.time()-start_time)/60))
 
+loss_save = './loss.png'
+plt.figure(figsize=(10,5))
+plt.title('Loss Progress')
+plt.plot(loss_history['gen'], label='Gen. Loss')
+plt.plot(loss_history['dis'], label='Dis. Loss')
+plt.xlabel('batch count')
+plt.ylabel('Loss')
+plt.legend()
+plt.savefig(loss_save)
+
+
+# 가중치 저장
+path2models = './models/'
+os.makedirs(path2models, exist_ok=True)
+path2weights_gen = os.path.join(path2models, 'weights_gen.pt')
+path2weights_dis = os.path.join(path2models, 'weights_dis.pt')
+
+torch.save(model_gen.state_dict(), path2weights_gen)
+torch.save(model_dis.state_dict(), path2weights_dis)
+
+# 가중치 불러오기
+weights = torch.load(path2weights_gen)
+model_gen.load_state_dict(weights)
+
+# evaluation mode
+model_gen.eval()
+
+# 가짜 이미지 생성
+with torch.no_grad():
+    fixed_noise = torch.randn(16, 100, device=device)
+    img_fake = model_gen(fixed_noise).detach().cpu()
+print(img_fake.shape)
+
+
+# 가짜 이미지 시각화
+#plt.figure(figsize=(300,300))
+for ii in range(16):
+    plt.imsave('./fake_image/fake_'+str(ii).zfill(2)+'.png', to_pil_image(0.5*img_fake[ii]+0.5),cmap='gray')
+    plt.axis('off')
 
